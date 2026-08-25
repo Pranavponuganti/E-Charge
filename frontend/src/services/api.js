@@ -4,21 +4,35 @@
  * Features automatic fallback for seamless local/offline preview!
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8085/api';
+// Only attempt backend calls if on localhost or if VITE_API_BASE_URL is explicitly set
+const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (isLocal ? 'http://localhost:8085/api' : null);
 
 async function fetchJson(endpoint, options = {}) {
+  if (!API_BASE_URL) {
+    return null; // Silent fallback when deployed without a remote backend
+  }
+
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500); // 3.5s timeout
+
     const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
       },
       ...options,
     });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      return null;
+    }
     const data = await res.json();
     return data;
   } catch (err) {
-    console.warn(`[Backend API] Request to ${endpoint} failed or backend offline. Using fallback:`, err.message);
     return null;
   }
 }
@@ -50,6 +64,7 @@ export const authApi = {
           name: res.data.name,
           email: res.data.email,
           phone: res.data.phone,
+          password: signupData.password,
           car: {
             brand: res.data.carBrand,
             model: res.data.carModel,
@@ -59,7 +74,7 @@ export const authApi = {
         }
       };
     }
-    return { success: false, error: res?.message || 'Signup failed' };
+    return null; // Return null to trigger smart local auth
   },
 
   async login(email, password) {
@@ -85,7 +100,7 @@ export const authApi = {
         }
       };
     }
-    return { success: false, error: res?.message || 'Invalid credentials' };
+    return null; // Return null to trigger smart local auth
   }
 };
 
@@ -129,7 +144,7 @@ export const bookingApi = {
     if (res && res.success) {
       return { success: true, booking: res.data };
     }
-    return { success: false, error: res?.message || 'Booking failed' };
+    return null;
   },
 
   async getByEmail(email) {

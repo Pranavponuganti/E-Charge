@@ -5,11 +5,33 @@ import { authApi, bookingApi, stationApi } from '../services/api';
 const AuthContext = createContext();
 
 const STORAGE_KEY_USER = 'echarge_user_session';
+const STORAGE_KEY_ACCOUNTS = 'echarge_registered_accounts';
 const STORAGE_KEY_RANGE = 'echarge_car_range';
 const STORAGE_KEY_BOOKINGS = 'echarge_active_bookings';
 
 export function AuthProvider({ children }) {
-  // User state
+  // Registered Accounts in LocalStorage
+  const getRegisteredAccounts = () => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_ACCOUNTS);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const saveAccount = (account) => {
+    try {
+      const existing = getRegisteredAccounts();
+      const filtered = existing.filter(a => a.email.toLowerCase() !== account.email.toLowerCase());
+      const updated = [...filtered, account];
+      localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Failed to save account to localStorage:', e);
+    }
+  };
+
+  // User session state
   const [user, setUser] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_USER);
@@ -19,7 +41,7 @@ export function AuthProvider({ children }) {
     }
   });
 
-  // Current remaining range in km (entered dynamically on dashboard)
+  // Current remaining range in km
   const [remainingRange, setRemainingRange] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_RANGE);
@@ -62,10 +84,8 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let isMounted = true;
     async function loadStations() {
-      const connector = user?.car?.connector;
       const backendStations = await stationApi.getReachable(remainingRange, null, null);
       if (isMounted && backendStations && backendStations.length > 0) {
-        // Map backend format to UI format
         const formatted = backendStations.map(s => ({
           id: 'st-' + s.id,
           rawId: s.id,
@@ -92,22 +112,35 @@ export function AuthProvider({ children }) {
 
   // Login handler
   const login = async (email, password) => {
-    // 1. Try Backend API
-    const apiRes = await authApi.login(email, password);
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Try Backend API first
+    const apiRes = await authApi.login(cleanEmail, password);
     if (apiRes && apiRes.success) {
       setUser(apiRes.user);
+      saveAccount(apiRes.user);
       return { success: true };
     }
-    if (apiRes && !apiRes.success) {
-      return { success: false, error: apiRes.error };
+
+    // 2. Check LocalStorage registered accounts DB
+    const accounts = getRegisteredAccounts();
+    const existing = accounts.find(a => a.email.toLowerCase() === cleanEmail);
+
+    if (existing) {
+      if (existing.password && existing.password !== password) {
+        return { success: false, error: 'Incorrect password. Please verify and try again.' };
+      }
+      setUser(existing);
+      return { success: true };
     }
 
-    // 2. Fallback local user creation for testing
-    const defaultUser = {
+    // 3. If account not found in local DB, create a session user with defaults
+    const autoUser = {
       id: 'usr-' + Date.now(),
       name: email.split('@')[0].toUpperCase(),
-      email,
+      email: cleanEmail,
       phone: '+91 98765 43210',
+      password,
       car: {
         brand: 'Tata',
         model: 'Nexon.ev Long Range',
@@ -115,27 +148,30 @@ export function AuthProvider({ children }) {
         capacity: 45
       }
     };
-    setUser(defaultUser);
+    saveAccount(autoUser);
+    setUser(autoUser);
     return { success: true };
   };
 
-  // Sign up handler (Customer details + Car Brand, Model, Connector Type, Capacity)
+  // Sign up handler
   const signup = async (signupData) => {
+    const cleanEmail = signupData.email.trim().toLowerCase();
+
+    // 1. Try Backend API first
     const apiRes = await authApi.signup(signupData);
     if (apiRes && apiRes.success) {
       setUser(apiRes.user);
+      saveAccount(apiRes.user);
       return { success: true };
     }
-    if (apiRes && !apiRes.success) {
-      return { success: false, error: apiRes.error };
-    }
 
-    // Fallback local signup
+    // 2. Create Local Account
     const newUser = {
       id: 'usr-' + Date.now(),
       name: signupData.name || 'EV Driver',
-      email: signupData.email || 'driver@gmail.com',
+      email: cleanEmail,
       phone: signupData.phone || '+91 98765 43210',
+      password: signupData.password,
       car: {
         brand: signupData.carBrand || 'Tata',
         model: signupData.carModel || 'Nexon.ev Long Range',
@@ -143,6 +179,8 @@ export function AuthProvider({ children }) {
         capacity: Number(signupData.batteryCapacity) || 45
       }
     };
+
+    saveAccount(newUser);
     setUser(newUser);
     return { success: true };
   };
@@ -155,19 +193,20 @@ export function AuthProvider({ children }) {
   // Update Car Specs in Garage
   const updateCar = (updatedCar) => {
     if (!user) return;
-    setUser(prev => ({
-      ...prev,
+    const updatedUser = {
+      ...user,
       car: {
-        ...prev.car,
+        ...user.car,
         ...updatedCar,
-        capacity: Number(updatedCar.capacity) || prev.car.capacity
+        capacity: Number(updatedCar.capacity) || user.car.capacity
       }
-    }));
+    };
+    setUser(updatedUser);
+    saveAccount(updatedUser);
   };
 
   // Add new booking
   const addBooking = async (bookingData) => {
-    // 1. Try Backend API
     const payload = {
       userId: user?.id && typeof user.id === 'number' ? user.id : 1,
       userName: user?.name || 'EV Driver',
