@@ -67,7 +67,7 @@ E-Charge/
 ---
 
 
-- Web Application: `http://localhost:5173`
+- Web Application: `https://e-charge-theta.vercel.app/`
 
 ---
 
