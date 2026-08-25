@@ -1,10 +1,10 @@
 ﻿/**
  * E-CHARGE Backend API Service Client
- * Connects to Spring Boot REST Backend at http://localhost:8085/api
+ * Connects to Spring Boot REST Backend (configurable via VITE_API_BASE_URL)
  * Features automatic fallback for seamless local/offline preview!
  */
 
-const API_BASE_URL = 'http://localhost:8085/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8085/api';
 
 async function fetchJson(endpoint, options = {}) {
   try {
@@ -43,29 +43,23 @@ export const authApi = {
     });
 
     if (res && res.success) {
-      return { success: true, user: res.data, message: res.message };
-    }
-    if (res && !res.success) {
-      return { success: false, error: res.message };
-    }
-
-    // Fallback: Local response if backend server is not running
-    return {
-      success: true,
-      user: {
-        id: 'local-' + Date.now(),
-        name: signupData.name,
-        email: signupData.email,
-        phone: signupData.phone,
-        car: {
-          brand: signupData.carBrand,
-          model: signupData.carModel,
-          connector: signupData.connectorType,
-          capacity: Number(signupData.batteryCapacity) || 60
+      return {
+        success: true,
+        user: {
+          id: res.data.id,
+          name: res.data.name,
+          email: res.data.email,
+          phone: res.data.phone,
+          car: {
+            brand: res.data.carBrand,
+            model: res.data.carModel,
+            connector: res.data.chargerType,
+            capacity: res.data.batteryCapacity
+          }
         }
-      },
-      message: 'Account created locally'
-    };
+      };
+    }
+    return { success: false, error: res?.message || 'Signup failed' };
   },
 
   async login(email, password) {
@@ -91,22 +85,18 @@ export const authApi = {
         }
       };
     }
-    if (res && !res.success) {
-      return { success: false, error: res.message };
-    }
-
-    return null; // Fall back to local authentication
+    return { success: false, error: res?.message || 'Invalid credentials' };
   }
 };
 
 export const stationApi = {
-  async getReachable(rangeKm, chargerType, search) {
-    let url = `/stations/reachable?rangeKm=${rangeKm || 100}`;
-    if (chargerType && chargerType !== 'all') url += `&chargerType=${encodeURIComponent(chargerType)}`;
-    if (search) url += `&search=${encodeURIComponent(search)}`;
+  async getReachable(rangeKm, connector = null, speed = null) {
+    let url = `/stations/reachable?rangeKm=${rangeKm}`;
+    if (connector) url += `&connector=${encodeURIComponent(connector)}`;
+    if (speed) url += `&speed=${encodeURIComponent(speed)}`;
 
     const res = await fetchJson(url);
-    if (res && res.success && Array.isArray(res.data)) {
+    if (res && res.success) {
       return res.data;
     }
     return null;
@@ -114,7 +104,15 @@ export const stationApi = {
 
   async getAll() {
     const res = await fetchJson('/stations');
-    if (res && res.success && Array.isArray(res.data)) {
+    if (res && res.success) {
+      return res.data;
+    }
+    return null;
+  },
+
+  async getPoints(stationId) {
+    const res = await fetchJson(`/stations/${stationId}/points`);
+    if (res && res.success) {
       return res.data;
     }
     return null;
@@ -131,7 +129,7 @@ export const bookingApi = {
     if (res && res.success) {
       return { success: true, booking: res.data };
     }
-    return null;
+    return { success: false, error: res?.message || 'Booking failed' };
   },
 
   async getByEmail(email) {
@@ -139,16 +137,13 @@ export const bookingApi = {
     if (res && res.success) {
       return res.data;
     }
-    return null;
+    return [];
   },
 
   async cancel(bookingId) {
     const res = await fetchJson(`/bookings/${bookingId}/cancel`, {
-      method: 'PUT'
+      method: 'PUT',
     });
-    if (res && res.success) {
-      return res.data;
-    }
-    return null;
+    return res && res.success;
   }
 };
