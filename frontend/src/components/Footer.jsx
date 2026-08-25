@@ -1,5 +1,5 @@
 ﻿import React from 'react';
-import { Zap, ShieldCheck, PhoneCall, Heart, SunMedium, Award, User, Mail, Phone, MapPin, Sparkles } from 'lucide-react';
+import { PhoneCall, SunMedium, User, Mail, Phone } from 'lucide-react';
 
 export default function Footer({ onOpenTariff, onOpenGarage, onOpenContact }) {
   return (
@@ -60,11 +60,11 @@ export default function Footer({ onOpenTariff, onOpenGarage, onOpenContact }) {
           </div>
         </div>
 
-        {/* Footer Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-12 border-b border-stone-800">
+        {/* Footer Grid - 3 Columns (Certifications Removed) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pb-12 border-b border-stone-800">
           
           {/* Col 1: Brand & Logo */}
-          <div className="space-y-4 md:col-span-1">
+          <div className="space-y-4">
             <div className="bg-white/95 px-3 py-1.5 rounded-2xl border border-brand-400/40 shadow-md inline-block">
               <img
                 src="/logo.png"
@@ -126,20 +126,6 @@ export default function Footer({ onOpenTariff, onOpenGarage, onOpenContact }) {
                   pranavponuganti0504@gmail.com
                 </a>
               </div>
-            </div>
-          </div>
-
-          {/* Col 4: Trust & Certification */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-amber-200/90">Certifications</h4>
-            <div className="p-3.5 rounded-2xl bg-stone-900 border border-stone-800 space-y-2">
-              <div className="flex items-center gap-2 text-xs text-stone-200">
-                <ShieldCheck className="w-4 h-4 text-amber-400" />
-                <span className="font-semibold">ISO 15118 & OCPP 2.0.1</span>
-              </div>
-              <p className="text-[11px] text-stone-400">
-                Encrypted payment gateways and automated protocol handshakes for seamless vehicle charging.
-              </p>
             </div>
           </div>
 
