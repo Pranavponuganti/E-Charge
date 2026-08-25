@@ -66,26 +66,7 @@ E-Charge/
 
 ---
 
-## 🚀 Getting Started
 
-### Prerequisites
-- **Java 21+** and **Maven** (included via `./mvnw`)
-- **Node.js 18+** and **npm**
-
-### 1. Run Backend (Spring Boot)
-```bash
-cd backend
-./mvnw spring-boot:run
-```
-- Server API: `http://localhost:8085/api`
-- H2 Database Console: `http://localhost:8085/h2-console` (JDBC URL: `jdbc:h2:mem:echargedb`, user: `sa`)
-
-### 2. Run Frontend (React)
-```bash
-cd frontend
-npm install
-npm run dev
-```
 - Web Application: `http://localhost:5173`
 
 ---
